@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Oracle weather</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="card">
+      <div class="search">
+        <input type="text" placeholder="enter city name" spellcheck="false" />
+        <button><img src="./images/search.png" alt="" /></button>
+      </div>
+
+      <div class="error">
+        <p>Invalid city name ;//////</p>
+      </div>
+      <div class="weather">
+        <img src="./images/rain.png" class="weather-icon" />
+        <h1 class="temp">22°C</h1>
+        <div class="unit-toggle">
+          <button id="celsiusBtn" class="active">°C</button>
+          <button id="fahrenheitBtn">°F</button>
+        </div>
+        <h2 class="city">Paris</h2>
+        <p class="feels-like">Feels like: --°C</p>
+        <p class="local-time">Local time: --:--</p>
+        <div class="details">
+          <div class="col">
+            <img src="./images/humidity.png" />
+            <div>
+              <p class="humidity">50%</p>
+              <p>Humidity</p>
+            </div>
+          </div>
+          <div class="col">
+            <img src="./images/wind.png" />
+            <div>
+              <p class="wind">15km/h</p>
+              <p>Wind Speed</p>
+            </div>
+          </div>
+          <div class="col">
+            <img src="images/pressure.svg" />
+            <div>
+              <p class="pressure">-- hPa</p>
+              <p>Pressure</p>
+            </div>
+          </div>
+
+          <div class="col">
+            <img src="images/visibility.svg" />
+            <div>
+              <p class="visibility">-- km</p>
+              <p>Visibility</p>
+            </div>
+          </div>
+
+          <div class="col">
+            <img src="images/sunrise.svg" />
+            <div>
+              <p class="sunrise">--:--</p>
+              <p>Sunrise</p>
+            </div>
+          </div>
+
+          <div class="col">
+            <img src="images/sunset.svg" />
+            <div>
+              <p class="sunset">--:--</p>
+              <p>Sunset</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+  const apikey = "5d3c5961d83c89051b4baba00d6f4237";
+  let unit = "metric"; // default Celsius
+  const lang = navigator.language.slice(0, 2) || "en";
+
+  // DOM elements
+  const searchBox = document.querySelector(".search input");
+  const searchBtn = document.querySelector(".search button");
+  const celsiusBtn = document.getElementById("celsiusBtn");
+  const fahrenheitBtn = document.getElementById("fahrenheitBtn");
+  const errorDiv = document.querySelector(".error");
+  const weatherDiv = document.querySelector(".weather");
+  const cardDiv = document.querySelector(".card");
+  const weatherIcon = document.querySelector(".weather-icon");
+
+  function getApiUrl(city) {
+    return `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&units=${unit}&lang=${lang}&appid=${apikey}`;
+  }
+
+  function getApiUrlByCoords(lat, lon) {
+    return `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=${unit}&lang=${lang}&appid=${apikey}`;
+  }
+
+  async function fetchWeather(url) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("City not found");
+      const data = await response.json();
+      updateWeather(data);
+    } catch (err) {
+      console.log(err);
+      errorDiv.style.display = "block";
+      weatherDiv.style.display = "none";
+    }
+  }
+
+  function checkWeather(city) {
+    city = city.trim();
+    if (city) fetchWeather(getApiUrl(city));
+  }
+
+  function checkWeatherByCoords(lat, lon) {
+    fetchWeather(getApiUrlByCoords(lat, lon));
+  }
+
+  function updateWeather(data) {
+    const weatherMain = data.weather[0].main;
+    const tempUnit = unit === "metric" ? "°C" : "°F";
+    const speedUnit = unit === "metric" ? "km/h" : "mph";
+
+    // Basic info
+    document.querySelector(".city").textContent = data.name;
+    document.querySelector(".temp").textContent = Math.round(data.main.temp) + tempUnit;
+    document.querySelector(".feels-like").textContent = `Feels like: ${Math.round(data.main.feels_like)}${tempUnit}`;
+    document.querySelector(".humidity").textContent = data.main.humidity + "%";
+    document.querySelector(".wind").textContent = Math.round(data.wind.speed) + speedUnit;
+    document.querySelector(".pressure").textContent = data.main.pressure + " hPa";
+    document.querySelector(".visibility").textContent = (data.visibility / 1000).toFixed(1) + " km";
+
+    // Sunrise / Sunset
+    const sunrise = new Date((data.sys.sunrise + data.timezone) * 1000);
+    const sunset = new Date((data.sys.sunset + data.timezone) * 1000);
+    document.querySelector(".sunrise").textContent = sunrise.toUTCString().match(/\d{2}:\d{2}/)[0];
+    document.querySelector(".sunset").textContent = sunset.toUTCString().match(/\d{2}:\d{2}/)[0];
+
+    // Local time
+    const localTime = new Date(Date.now() + data.timezone * 1000 - new Date().getTimezoneOffset() * 60000);
+    document.querySelector(".local-time").textContent = `Local time: ${localTime.getHours().toString().padStart(2, "0")}:${localTime.getMinutes().toString().padStart(2, "0")}`;
+
+    // Day/Night theme
+    const isNight = localTime < sunrise || localTime > sunset;
+    if (isNight) {
+      document.body.style.background = "linear-gradient(135deg, #0f2027, #203a43, #2c5364)";
+      cardDiv.style.background = "rgba(20, 20, 30, 0.6)";
+      weatherIcon.style.filter = "brightness(0.7) invert(1)";
+    } else {
+      const bgMap = {
+        Clear: "linear-gradient(135deg, #f4d03f, #16a085, 0.6)",
+        Clouds: "linear-gradient(135deg, #757f9a, #d7dde8, 0.6)",
+        Rain: "linear-gradient(135deg, #1f1c2c, #928dab, 0.6)",
+        Drizzle: "linear-gradient(135deg, #4b79a1, #283e51, 0.6)",
+        Snow: "linear-gradient(135deg, #e0eafc, #cfdef3, 0.6)",
+        Mist: "linear-gradient(135deg, #606c88, #3f4c6b, 0.6)",
+        Fog: "linear-gradient(135deg, #606c88, #3f4c6b, 0.6)",
+        Thunderstorm: "linear-gradient(135deg, #232526, #414345, 0.6)"
+      };
+      document.body.style.background = bgMap[weatherMain] || "linear-gradient(135deg, #1e1f29, #3a506b, #5bc0be)";
+      cardDiv.style.background = "rgba(255, 255, 255, 0.1)";
+      weatherIcon.style.filter = "invert(1)";
+    }
+
+    // Weather icon
+    const iconMap = {
+      Clouds: "./images/clouds.png",
+      Clear: "./images/clear.png",
+      Rain: "./images/rain.png",
+      Drizzle: "./images/drizzle.png",
+      Mist: "./images/mist.png",
+      Snow: "./images/snow.png",
+      Thunderstorm: "./images/thunderstorm.png"
+    };
+    weatherIcon.src = iconMap[weatherMain] || "./images/default.png";
+
+    // Show weather
+    weatherDiv.style.display = "block";
+    errorDiv.style.display = "none";
+  }
+
+  // Event listeners
+  searchBtn.addEventListener("click", () => checkWeather(searchBox.value));
+  searchBox.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") checkWeather(searchBox.value);
+  });
+
+  celsiusBtn.addEventListener("click", () => {
+    if (unit !== "metric") {
+      unit = "metric";
+      celsiusBtn.classList.add("active");
+      fahrenheitBtn.classList.remove("active");
+      if (searchBox.value) checkWeather(searchBox.value);
+    }
+  });
+
+  fahrenheitBtn.addEventListener("click", () => {
+    if (unit !== "imperial") {
+      unit = "imperial";
+      fahrenheitBtn.classList.add("active");
+      celsiusBtn.classList.remove("active");
+      if (searchBox.value) checkWeather(searchBox.value);
+    }
+  });
+
+  // Geolocation on load
+  window.addEventListener("load", () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => checkWeatherByCoords(pos.coords.latitude, pos.coords.longitude),
+        () => console.log("Geolocation denied or failed.")
+      );
+    }
+  });
+</script>
+  </body>
+</html>

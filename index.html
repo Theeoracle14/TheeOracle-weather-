@@ -77,10 +77,9 @@
     </div>
     <script>
   const apikey = "5d3c5961d83c89051b4baba00d6f4237";
-  let unit = "metric"; // default Celsius
+  let unit = "metric";
   const lang = navigator.language.slice(0, 2) || "en";
 
-  // DOM elements
   const searchBox = document.querySelector(".search input");
   const searchBtn = document.querySelector(".search button");
   const celsiusBtn = document.getElementById("celsiusBtn");
@@ -90,8 +89,20 @@
   const cardDiv = document.querySelector(".card");
   const weatherIcon = document.querySelector(".weather-icon");
 
+  const fallbackCities = {
+    fr: "Paris",
+    en: "London",
+    es: "Madrid",
+  };
+
+  function getFallbackCity(lang) {
+    return fallbackCities[lang] || "Paris";
+  }
+
   function getApiUrl(city) {
-    return `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&units=${unit}&lang=${lang}&appid=${apikey}`;
+    return `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(
+      city
+    )}&units=${unit}&lang=${lang}&appid=${apikey}`;
   }
 
   function getApiUrlByCoords(lat, lon) {
@@ -124,49 +135,76 @@
     const weatherMain = data.weather[0].main;
     const tempUnit = unit === "metric" ? "°C" : "°F";
     const speedUnit = unit === "metric" ? "km/h" : "mph";
+    const pad = (n) => String(n).padStart(2, "0");
 
-    // Basic info
     document.querySelector(".city").textContent = data.name;
-    document.querySelector(".temp").textContent = Math.round(data.main.temp) + tempUnit;
-    document.querySelector(".feels-like").textContent = `Feels like: ${Math.round(data.main.feels_like)}${tempUnit}`;
+    document.querySelector(".temp").textContent =
+      Math.round(data.main.temp) + tempUnit;
+    document.querySelector(".feels-like").textContent = `Feels like: ${Math.round(
+      data.main.feels_like
+    )}${tempUnit}`;
     document.querySelector(".humidity").textContent = data.main.humidity + "%";
-    document.querySelector(".wind").textContent = Math.round(data.wind.speed) + speedUnit;
-    document.querySelector(".pressure").textContent = data.main.pressure + " hPa";
-    document.querySelector(".visibility").textContent = (data.visibility / 1000).toFixed(1) + " km";
+    document.querySelector(".wind").textContent =
+      Math.round(data.wind.speed) + speedUnit;
+    document.querySelector(".pressure").textContent =
+      data.main.pressure + " hPa";
+    document.querySelector(".visibility").textContent =
+      (data.visibility / 1000).toFixed(1) + " km";
 
-    // Sunrise / Sunset
-    const sunrise = new Date((data.sys.sunrise + data.timezone) * 1000);
-    const sunset = new Date((data.sys.sunset + data.timezone) * 1000);
-    document.querySelector(".sunrise").textContent = sunrise.toUTCString().match(/\d{2}:\d{2}/)[0];
-    document.querySelector(".sunset").textContent = sunset.toUTCString().match(/\d{2}:\d{2}/)[0];
+    // Accurate sunrise/sunset in local city time
+    const timezoneOffset = data.timezone; // seconds from UTC
+    const sunriseUTC = new Date(data.sys.sunrise * 1000);
+    const sunsetUTC = new Date(data.sys.sunset * 1000);
 
-    // Local time
-    const localTime = new Date(Date.now() + data.timezone * 1000 - new Date().getTimezoneOffset() * 60000);
-    document.querySelector(".local-time").textContent = `Local time: ${localTime.getHours().toString().padStart(2, "0")}:${localTime.getMinutes().toString().padStart(2, "0")}`;
+    const sunriseLocal = new Date(sunriseUTC.getTime() + timezoneOffset * 1000);
+    const sunsetLocal = new Date(sunsetUTC.getTime() + timezoneOffset * 1000);
 
-    // Day/Night theme
-    const isNight = localTime < sunrise || localTime > sunset;
+    document.querySelector(".sunrise").textContent = `${pad(
+      sunriseLocal.getUTCHours()
+    )}:${pad(sunriseLocal.getUTCMinutes())}`;
+    document.querySelector(".sunset").textContent = `${pad(
+      sunsetLocal.getUTCHours()
+    )}:${pad(sunsetLocal.getUTCMinutes())}`;
+
+    // Accurate local time
+    const nowUTC = new Date();
+    const nowLocal = new Date(nowUTC.getTime() + timezoneOffset * 1000);
+
+    document.querySelector(
+      ".local-time"
+    ).textContent = `Local time: ${pad(nowLocal.getUTCHours())}:${pad(
+      nowLocal.getUTCMinutes()
+    )}`;
+
+    // Day/night theme
+    const isNight =
+      nowLocal.getTime() < sunriseLocal.getTime() ||
+      nowLocal.getTime() > sunsetLocal.getTime();
+
     if (isNight) {
-      document.body.style.background = "linear-gradient(135deg, #0f2027, #203a43, #2c5364)";
+      document.body.style.background =
+        "linear-gradient(135deg, #0f2027, #203a43, #2c5364)";
       cardDiv.style.background = "rgba(20, 20, 30, 0.6)";
       weatherIcon.style.filter = "brightness(0.7) invert(1)";
     } else {
       const bgMap = {
-        Clear: "linear-gradient(135deg, #f4d03f, #16a085, 0.6)",
-        Clouds: "linear-gradient(135deg, #757f9a, #d7dde8, 0.6)",
-        Rain: "linear-gradient(135deg, #1f1c2c, #928dab, 0.6)",
-        Drizzle: "linear-gradient(135deg, #4b79a1, #283e51, 0.6)",
-        Snow: "linear-gradient(135deg, #e0eafc, #cfdef3, 0.6)",
-        Mist: "linear-gradient(135deg, #606c88, #3f4c6b, 0.6)",
-        Fog: "linear-gradient(135deg, #606c88, #3f4c6b, 0.6)",
-        Thunderstorm: "linear-gradient(135deg, #232526, #414345, 0.6)"
+        Clear: "linear-gradient(135deg, #f4d03f, #16a085)",
+        Clouds: "linear-gradient(135deg, #757f9a, #d7dde8)",
+        Rain: "linear-gradient(135deg, #1f1c2c, #928dab)",
+        Drizzle: "linear-gradient(135deg, #4b79a1, #283e51)",
+        Snow: "linear-gradient(135deg, #e0eafc, #cfdef3)",
+        Mist: "linear-gradient(135deg, #606c88, #3f4c6b)",
+        Fog: "linear-gradient(135deg, #606c88, #3f4c6b)",
+        Thunderstorm: "linear-gradient(135deg, #232526, #414345)",
       };
-      document.body.style.background = bgMap[weatherMain] || "linear-gradient(135deg, #1e1f29, #3a506b, #5bc0be)";
+      document.body.style.background =
+        bgMap[weatherMain] ||
+        "linear-gradient(135deg, #1e1f29, #3a506b, #5bc0be)";
       cardDiv.style.background = "rgba(255, 255, 255, 0.1)";
       weatherIcon.style.filter = "invert(1)";
     }
 
-    // Weather icon
+    // Icons
     const iconMap = {
       Clouds: "./images/clouds.png",
       Clear: "./images/clear.png",
@@ -174,11 +212,10 @@
       Drizzle: "./images/drizzle.png",
       Mist: "./images/mist.png",
       Snow: "./images/snow.png",
-      Thunderstorm: "./images/thunderstorm.png"
+      Thunderstorm: "./images/thunderstorm.png",
     };
     weatherIcon.src = iconMap[weatherMain] || "./images/default.png";
 
-    // Show weather
     weatherDiv.style.display = "block";
     errorDiv.style.display = "none";
   }
@@ -207,15 +244,25 @@
     }
   });
 
-  // Geolocation on load
+  // Geolocation with fallback
   window.addEventListener("load", () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => checkWeatherByCoords(pos.coords.latitude, pos.coords.longitude),
-        () => console.log("Geolocation denied or failed.")
+        (pos) =>
+          checkWeatherByCoords(pos.coords.latitude, pos.coords.longitude),
+        () => {
+          const fallbackCity = getFallbackCity(lang);
+          console.log(`Using fallback city: ${fallbackCity}`);
+          checkWeather(fallbackCity);
+        }
       );
+    } else {
+      const fallbackCity = getFallbackCity(lang);
+      console.log(`Geolocation not supported. Using fallback city: ${fallbackCity}`);
+      checkWeather(fallbackCity);
     }
   });
 </script>
+
   </body>
 </html>
